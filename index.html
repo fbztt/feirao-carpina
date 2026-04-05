@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d1117">
+<title>Seminovos em Alta — Checklist de Campo</title>
+<link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;Feirao Carpina&quot;,&quot;short_name&quot;:&quot;Feirao&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;#0d1117&quot;,&quot;theme_color&quot;:&quot;#e94560&quot;}">
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1117; --surface: #16213e; --surface2: #1a1a2e; --surface3: #2a2a3e;
+    --red: #e94560; --blue: #0f3460; --green: #10b981; --amber: #f59e0b;
+    --purple: #8b5cf6; --text: #e2e8f0; --muted: #64748b; --dim: #9ca3af;
+    --font: 'DM Sans', -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'Space Mono', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh;
+    min-height: -webkit-fill-available; overflow-x: hidden; }
+  html { height: -webkit-fill-available; }
+
+  /* SETUP SCREEN */
+  .setup-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 20px; }
+  .setup-card { background: var(--surface); border-radius: 20px; padding: 32px 24px; max-width: 440px;
+    width: 100%; border: 1px solid var(--surface3); }
+  .setup-card h1 { font-size: 22px; font-weight: 900; color: var(--red); margin-bottom: 4px; }
+  .setup-card p { font-size: 13px; color: var(--dim); margin-bottom: 20px; line-height: 1.5; }
+  .setup-card label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 0.8px;
+    text-transform: uppercase; display: block; margin-bottom: 6px; margin-top: 14px; }
+  .setup-card input { width: 100%; padding: 10px 14px; background: var(--surface2); border: 1px solid var(--surface3);
+    border-radius: 10px; color: var(--text); font-family: var(--mono); font-size: 12px; outline: none; }
+  .setup-card input:focus { border-color: var(--red); }
+  .setup-card input::placeholder { color: var(--muted); font-family: var(--mono); }
+
+  .btn-primary { width: 100%; padding: 14px; background: var(--red); border: none; border-radius: 12px;
+    color: white; font-weight: 800; font-size: 14px; cursor: pointer; margin-top: 24px;
+    font-family: var(--font); transition: all 0.2s; letter-spacing: 0.5px; }
+  .btn-primary:active { transform: scale(0.97); }
+  .btn-secondary { width: 100%; padding: 12px; background: var(--surface2); border: 2px solid var(--surface3);
+    border-radius: 12px; color: var(--dim); font-weight: 700; font-size: 13px; cursor: pointer;
+    margin-top: 10px; font-family: var(--font); transition: all 0.2s; }
+
+  .setup-hint { background: var(--surface2); border-radius: 10px; padding: 14px; margin-top: 16px;
+    border-left: 3px solid var(--amber); }
+  .setup-hint p { margin: 0; font-size: 12px; color: var(--amber); line-height: 1.5; }
+
+  /* TOP BAR */
+  .topbar { background: linear-gradient(135deg, var(--surface2), var(--surface)); padding: 14px 16px;
+    position: sticky; top: 0; z-index: 50; border-bottom: 2px solid var(--red);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+  .topbar-inner { max-width: 600px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .topbar-title { font-size: 15px; font-weight: 900; color: var(--red); letter-spacing: 1px; }
+  .topbar-sub { font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: 0.5px; }
+  .topbar-status { font-size: 10px; color: var(--muted); text-align: right; }
+  .topbar-status .online { color: var(--green); }
+  .topbar-user { display: flex; align-items: center; gap: 6px; background: var(--surface2); padding: 4px 10px 4px 6px;
+    border-radius: 20px; font-size: 11px; font-weight: 700; color: var(--dim); cursor: pointer; border: 1px solid var(--surface3); }
+  .topbar-user .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* MAIN CONTENT */
+  .main { max-width: 600px; margin: 0 auto; padding: 16px; padding-bottom: 80px; }
+
+  /* STATS ROW */
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 22px; }
+  .stat-card { background: var(--surface2); border-radius: 14px; padding: 14px 12px; border-left: 4px solid; }
+  .stat-label { font-size: 10px; color: var(--dim); font-weight: 700; letter-spacing: 0.8px;
+    text-transform: uppercase; margin-bottom: 4px; }
+  .stat-value { font-size: 24px; font-weight: 900; font-family: var(--mono); }
+
+  /* DAY SECTION */
+  .day-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; margin-top: 8px; }
+  .day-bar { width: 4px; height: 22px; border-radius: 2px; }
+  .day-title { font-size: 14px; font-weight: 800; color: #f1f1f1; letter-spacing: 0.5px; }
+
+  /* LOJA CARD */
+  .loja-card { background: var(--surface); border-radius: 14px; padding: 14px 14px; cursor: pointer;
+    display: flex; align-items: center; gap: 12px; margin-bottom: 8px; border: 1px solid transparent;
+    transition: all 0.15s; position: relative; overflow: hidden; }
+  .loja-card:active { transform: scale(0.98); }
+  .loja-num { min-width: 28px; height: 28px; border-radius: 9px; display: flex; align-items: center;
+    justify-content: center; font-size: 13px; font-weight: 900; color: white; flex-shrink: 0; }
+  .loja-info { flex: 1; min-width: 0; }
+  .loja-name { font-size: 14px; font-weight: 700; color: #f1f1f1; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
+  .loja-addr { font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .loja-arrow { color: #4a5568; font-size: 16px; flex-shrink: 0; }
+
+  /* STATUS BADGE */
+  .badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px;
+    letter-spacing: 0.3px; text-transform: uppercase; white-space: nowrap; flex-shrink: 0; }
+  .badge-pendente { background: #3a3a4e; color: var(--dim); }
+  .badge-em_andamento { background: #1e3a5f; color: #60a5fa; }
+  .badge-concluida { background: #064e3b; color: #34d399; }
+
+  /* PROGRESS RING */
+  .ring-wrap { flex-shrink: 0; }
+
+  /* CITY PHOTOS BUTTON */
+  .city-btn { background: linear-gradient(135deg, var(--surface2), #2d1b4e); border-radius: 14px;
+    padding: 16px; cursor: pointer; display: flex; align-items: center; gap: 12px;
+    border: 1px solid #4c1d95; margin-top: 16px; transition: all 0.15s; }
+  .city-btn:active { transform: scale(0.98); }
+
+  /* DETAIL VIEW */
+  .detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .btn-back { background: var(--surface2); border: none; color: var(--dim); border-radius: 10px;
+    width: 36px; height: 36px; font-size: 18px; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; flex-shrink: 0; }
+
+  /* STATUS SELECTOR */
+  .status-row { display: flex; gap: 6px; margin-bottom: 22px; flex-wrap: wrap; }
+  .status-btn { padding: 8px 14px; border-radius: 10px; border: 2px solid var(--surface3);
+    background: var(--surface2); color: var(--dim); font-size: 12px; font-weight: 700;
+    cursor: pointer; font-family: var(--font); transition: all 0.15s; }
+  .status-btn.active { border-color: var(--red); background: #2d1020; color: var(--red); }
+
+  /* SECTIONS */
+  .section { background: var(--surface); border-radius: 16px; margin-bottom: 14px; overflow: hidden; }
+  .section-head { padding: 14px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .section-head .icon { font-size: 17px; }
+  .section-head .title { flex: 1; font-size: 14px; font-weight: 800; color: var(--text); }
+  .section-head .arrow { color: #4a5568; font-size: 14px; transition: transform 0.2s; }
+  .section-head .arrow.open { transform: rotate(90deg); }
+  .section-body { padding: 10px 16px 14px; border-top: 1px solid var(--surface2); }
+
+  /* CHECK ITEMS */
+  .check-item { display: flex; align-items: center; gap: 12px; padding: 10px 0;
+    border-bottom: 1px solid var(--surface2); cursor: pointer; -webkit-user-select: none; user-select: none; }
+  .check-item:last-child { border-bottom: none; }
+  .checkbox { width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--surface3);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+  .checkbox.checked { background: var(--green); border-color: var(--green); }
+  .checkbox.checked::after { content: "✓"; color: white; font-size: 14px; font-weight: 900; }
+  .check-label { flex: 1; font-size: 13px; color: #cbd5e1; font-weight: 500; transition: all 0.15s; }
+  .check-label.done { color: var(--green); text-decoration: line-through; }
+  .tag { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px; flex-shrink: 0; }
+
+  /* SCORE ROW */
+  .score-row { display: flex; align-items: center; gap: 8px; padding: 10px 0;
+    border-bottom: 1px solid var(--surface2); }
+  .score-row:last-child { border-bottom: none; }
+  .score-info { flex: 1; min-width: 0; }
+  .score-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .score-desc { font-size: 10px; color: var(--muted); margin-top: 1px; }
+  .score-btns { display: flex; gap: 4px; }
+  .score-btn { width: 30px; height: 30px; border-radius: 8px; border: none; cursor: pointer;
+    font-weight: 800; font-size: 12px; transition: all 0.1s; font-family: var(--font); }
+  .score-btn.off { background: var(--surface2); color: var(--muted); }
+  .score-btn.on { background: var(--red); color: white; transform: scale(1.1); }
+
+  /* INPUTS */
+  .field { margin-bottom: 12px; }
+  .field-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.7px; margin-bottom: 5px; display: block; }
+  .field-input { width: 100%; padding: 9px 12px; background: var(--surface2); border: 1px solid var(--surface3);
+    border-radius: 9px; color: var(--text); font-size: 13px; font-family: var(--font); outline: none; }
+  .field-input:focus { border-color: var(--red); }
+  .field-input::placeholder { color: var(--muted); }
+  .field-textarea { min-height: 90px; resize: vertical; }
+  .field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .vend-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .vend-row .field { margin-bottom: 0; }
+
+  /* SCORE SUMMARY */
+  .score-summary { display: flex; align-items: center; gap: 8px; }
+  .score-badge { font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 8px; }
+
+  /* SYNC INDICATOR */
+  .sync-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--surface); border: 1px solid var(--surface3); border-radius: 12px;
+    padding: 8px 16px; font-size: 12px; color: var(--dim); z-index: 100;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.3s;
+    pointer-events: none; }
+  .sync-toast.show { opacity: 1; }
+
+  /* ANIMATIONS */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn 0.3s ease; }
+
+  /* RESPONSIVE */
+  @media (max-width: 380px) {
+    .stats-row { grid-template-columns: 1fr; }
+    .stat-value { font-size: 20px; }
+    .status-row { gap: 4px; }
+    .status-btn { padding: 6px 10px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+<div id="sync-toast" class="sync-toast">✓ Sincronizado</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// DADOS DO FEIRÃO
+// ═══════════════════════════════════════════════════════════════
+
+const LOJAS = [
+  { id:"jm", nome:"JM Veículos", endereco:"Av. Agamenon Magalhães, 1058", tel:"(81) 99159-1280", dia:1, ordem:1 },
+  { id:"jr", nome:"JR Veículos", endereco:"São José, Carpina", tel:"Confirmar", dia:1, ordem:2 },
+  { id:"guivel", nome:"Guivel", endereco:"São José, Carpina", tel:"(81) 3842-0620", dia:1, ordem:3 },
+  { id:"ad", nome:"AD Veículos", endereco:"Av. Congresso Euc. Int., 474", tel:"(81) 99470-2607", dia:1, ordem:4 },
+  { id:"pato", nome:"Pato Veículos", endereco:"Av. Congresso Euc. Int., 567", tel:"(81) 99936-4546", dia:1, ordem:5 },
+  { id:"jp", nome:"JP Veículos", endereco:"Av. Congresso Euc. Int., 622", tel:"(81) 3622-0350", dia:1, ordem:6 },
+  { id:"supercarro", nome:"SuperCarro", endereco:"São José, Carpina", tel:"(81) 98877-5516", dia:1, ordem:7 },
+  { id:"mais", nome:"Mais Veículos", endereco:"Av. Congresso Euc. Int., 823", tel:"(81) 99984-2750", dia:2, ordem:1 },
+  { id:"multivel", nome:"Multivel", endereco:"Av. Congresso Euc. Int., 823", tel:"(81) 99828-0800", dia:2, ordem:2 },
+  { id:"rg", nome:"RG Veículos", endereco:"Av. Santa Cruz, 848", tel:"(81) 99805-9596", dia:2, ordem:3 },
+  { id:"sd", nome:"SD Multimarcas", endereco:"Av. Congresso Euc. Int., 1102", tel:"(81) 99407-6732", dia:2, ordem:4 },
+  { id:"gfc", nome:"GFC Veículos", endereco:"Av. Congresso Euc. Int., 1198", tel:"(81) 99112-6997", dia:2, ordem:5 },
+  { id:"tiao", nome:"Tião Veículos", endereco:"Av. Congresso Euc. Int., 955", tel:"(81) 3621-6381", dia:2, ordem:6 },
+  { id:"vivant", nome:"Seminovos Vivant", endereco:"BR-408, 945 - Bairro Novo", tel:"(81) 3621-6653", dia:2, ordem:7 },
+];
+
+const SCORE_ITEMS = [
+  { id:"tempo", label:"Tempo de mercado", desc:"<1ano=1 | 1-3=2 | 3-5=3 | 5-10=4 | >10=5" },
+  { id:"estoque", label:"Volume de estoque", desc:"<10=1 | 10-20=2 | 20-40=3 | 40-70=4 | >70=5" },
+  { id:"estrutura", label:"Estrutura física", desc:"Fachada, organização, pátio" },
+  { id:"atendimento", label:"Atendimento", desc:"Recepção, cordialidade" },
+  { id:"digital", label:"Presença digital", desc:"Instagram, site, Google" },
+  { id:"reputacao", label:"Reputação online", desc:"Reviews, boca-a-boca" },
+  { id:"variedade", label:"Variedade veículos", desc:"Marcas, faixas, tipos" },
+  { id:"docs", label:"Documentação", desc:"CNPJ, alvará, fiscal" },
+];
+
+const MATERIAL_ITEMS = [
+  { id:"logo", label:"Logo alta resolução", resp:"luidhy" },
+  { id:"logo_enviado", label:"Logo enviado à equipe", resp:"luidhy" },
+  { id:"foto_fachada", label:"Foto fachada frontal", resp:"israel" },
+  { id:"foto_patio", label:"Foto panorâmica pátio", resp:"israel" },
+  { id:"foto_veiculos", label:"Fotos veículos destaque", resp:"israel" },
+  { id:"video", label:"Vídeo institucional (15-30s)", resp:"israel" },
+  { id:"foto_equipe", label:"Foto equipe (c/ autorização)", resp:"israel" },
+  { id:"dados_vendedores", label:"Dados vendedores registrados", resp:"luidhy" },
+];
+
+const CONFIRM_ITEMS = [
+  { id:"datas", label:"Ciente das datas (23-26/04)" },
+  { id:"local", label:"Ciente do local (Shopping Carpina)" },
+  { id:"bradesco", label:"Ciente condições Bradesco" },
+  { id:"qtd_veiculos", label:"Confirmou qtd veículos" },
+  { id:"regulamento", label:"Recebeu regulamento" },
+  { id:"contato", label:"Indicou contato p/ comunicação" },
+];
+
+const CITY_PHOTOS = [
+  { id:"entrada", label:"Entrada da cidade" },
+  { id:"praca", label:"Praça principal" },
+  { id:"shopping_fachada", label:"Fachada Shopping Carpina" },
+  { id:"estacionamento", label:"Estacionamento do Shopping" },
+  { id:"ruas", label:"Ruas comerciais movimentadas" },
+  { id:"referencias", label:"Pontos de referência" },
+  { id:"paisagens", label:"Paisagens da região" },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// STATE + FIREBASE
+// ═══════════════════════════════════════════════════════════════
+
+let db = null;
+let dbRef = null;
+let state = { lojas: {}, cityPhotos: {}, notes: "" };
+let currentView = "setup"; // setup, dashboard, loja, city
+let selectedLojaId = null;
+let currentUser = localStorage.getItem("feirao_user") || "";
+let openSections = {};
+let syncTimeout = null;
+let isOffline = false;
+
+function defaultLojaData() {
+  return {
+    scores:{}, materials:{}, confirms:{},
+    vendedores:["","","",""], vendedoresTel:["","","",""],
+    responsavel:"", cargo:"", whatsapp:"", email:"", instagram:"",
+    qtdVeiculos:"", faixaPreco:"", tipos:"", marcas:"",
+    observacoes:"", status:"pendente", lastUpdate:null
+  };
+}
+
+function initState() {
+  LOJAS.forEach(l => { if (!state.lojas[l.id]) state.lojas[l.id] = defaultLojaData(); });
+  if (!state.cityPhotos) state.cityPhotos = {};
+}
+
+function connectFirebase(config) {
+  try {
+    const app = firebase.initializeApp(config);
+    db = firebase.database();
+    dbRef = db.ref("feirao-carpina");
+
+    // Listen for real-time updates
+    dbRef.on("value", snap => {
+      const val = snap.val();
+      if (val) {
+        state = val;
+        initState();
+        render();
+        showSyncToast("✓ Sincronizado em tempo real");
+      }
+    });
+
+    // Connection state
+    db.ref(".info/connected").on("value", snap => {
+      isOffline = !snap.val();
+      render();
+    });
+
+    localStorage.setItem("feirao_firebase_config", JSON.stringify(config));
+    currentView = "dashboard";
+    render();
+    return true;
+  } catch (e) {
+    alert("Erro ao conectar: " + e.message);
+    return false;
+  }
+}
+
+function saveToFirebase() {
+  if (dbRef) {
+    clearTimeout(syncTimeout);
+    syncTimeout = setTimeout(() => {
+      dbRef.set(state).then(() => {
+        showSyncToast("✓ Sincronizado");
+      }).catch(e => {
+        showSyncToast("⚠ Erro ao salvar");
+      });
+    }, 300); // debounce 300ms
+  } else if (window._offlineSave) {
+    window._offlineSave();
+    showSyncToast("💾 Salvo localmente");
+  }
+}
+
+function updateLoja(lojaId, field, value) {
+  if (!state.lojas[lojaId]) state.lojas[lojaId] = defaultLojaData();
+  const keys = field.split(".");
+  let obj = state.lojas[lojaId];
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (!obj[keys[i]]) obj[keys[i]] = {};
+    obj = obj[keys[i]];
+  }
+  obj[keys[keys.length - 1]] = value;
+  state.lojas[lojaId].lastUpdate = new Date().toISOString();
+  state.lojas[lojaId].lastUpdatedBy = currentUser;
+  saveToFirebase();
+  render();
+}
+
+function showSyncToast(msg) {
+  const el = document.getElementById("sync-toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  setTimeout(() => el.classList.remove("show"), 2000);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+function getLojaProgress(ld) {
+  if (!ld) return 0;
+  let total = 0, done = 0;
+  SCORE_ITEMS.forEach(s => { total++; if (ld.scores && ld.scores[s.id]) done++; });
+  MATERIAL_ITEMS.forEach(m => { total++; if (ld.materials && ld.materials[m.id]) done++; });
+  CONFIRM_ITEMS.forEach(c => { total++; if (ld.confirms && ld.confirms[c.id]) done++; });
+  return total > 0 ? Math.round((done / total) * 100) : 0;
+}
+
+function getScoreTotal(scores) {
+  if (!scores) return 0;
+  return Object.values(scores).reduce((a, b) => a + (parseInt(b) || 0), 0);
+}
+
+function getScoreClass(total) {
+  if (total >= 32) return { label: "Ouro", color: "#f59e0b" };
+  if (total >= 24) return { label: "Prata", color: "#9ca3af" };
+  if (total >= 16) return { label: "Bronze", color: "#b45309" };
+  return { label: "Revisar", color: "#ef4444" };
+}
+
+function progressRingSVG(pct, size = 44, stroke = 4) {
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (pct / 100) * circ;
+  const color = pct === 100 ? "#10b981" : pct >= 50 ? "#f59e0b" : "#ef4444";
+  return `<svg width="${size}" height="${size}" style="transform:rotate(-90deg)">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#2a2a3e" stroke-width="${stroke}"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}"
+      stroke-dasharray="${circ}" stroke-dashoffset="${offset}" stroke-linecap="round"
+      style="transition:stroke-dashoffset 0.5s ease"/>
+    <text x="${size/2}" y="${size/2}" text-anchor="middle" dy="0.35em" fill="${color}"
+      style="font-size:${size*0.28}px;font-weight:900;transform:rotate(90deg);transform-origin:center;font-family:var(--mono)">${pct}%</text>
+  </svg>`;
+}
+
+function badgeHTML(status) {
+  const map = { pendente:"badge-pendente", em_andamento:"badge-em_andamento", concluida:"badge-concluida" };
+  const labels = { pendente:"Pendente", em_andamento:"Em andamento", concluida:"Concluída" };
+  return `<span class="badge ${map[status] || map.pendente}">${labels[status] || "Pendente"}</span>`;
+}
+
+function tagHTML(text, color) {
+  return `<span class="tag" style="color:${color};background:${color}22">${text}</span>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════
+
+function render() {
+  const app = document.getElementById("app");
+  switch (currentView) {
+    case "setup": app.innerHTML = renderSetup(); break;
+    case "dashboard": app.innerHTML = renderTopbar() + `<div class="main fade-in">${renderDashboard()}</div>`; break;
+    case "loja": app.innerHTML = renderTopbar() + `<div class="main fade-in">${renderLojaDetail()}</div>`; break;
+    case "city": app.innerHTML = renderTopbar() + `<div class="main fade-in">${renderCityPhotos()}</div>`; break;
+  }
+}
+
+// ─── SETUP SCREEN ───
+
+// Firebase config hardcoded
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDgh6-6Ky_VKDzgasOlC5g43V454zzmtZM",
+  authDomain: "feirao-carpina.firebaseapp.com",
+  databaseURL: "https://feirao-carpina-default-rtdb.firebaseio.com",
+  projectId: "feirao-carpina",
+  storageBucket: "feirao-carpina.firebasestorage.app",
+  messagingSenderId: "771386816260",
+  appId: "1:771386816260:web:3e3b073edd1a94c5de4251"
+};
+
+function renderSetup() {
+  return `
+  <div class="setup-screen">
+    <div class="setup-card">
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:40px;margin-bottom:8px">🚗</div>
+        <h1 style="margin-bottom:2px">SEMINOVOS EM ALTA</h1>
+        <p style="margin-bottom:0">Checklist de Campo — Feirão Carpina-PE</p>
+      </div>
+
+      <label>Quem é você?</label>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+        ${["CEO", "Luidhy", "Israel"].map(name => {
+          const colors = { CEO:"#e94560", Luidhy:"#3b82f6", Israel:"#f59e0b" };
+          const icons = { CEO:"👔", Luidhy:"📋", Israel:"📸" };
+          const descs = { CEO:"Infraestrutura e acompanhamento", Luidhy:"Entrevista e dados", Israel:"Registro visual" };
+          return `<button onclick="quickLogin('${name}')" style="display:flex;align-items:center;gap:12px;width:100%;
+            padding:14px 16px;background:var(--surface2);border:2px solid var(--surface3);border-radius:12px;
+            cursor:pointer;transition:all 0.15s;text-align:left;font-family:var(--font)"
+            onmouseenter="this.style.borderColor='${colors[name]}'" onmouseleave="this.style.borderColor='var(--surface3)'">
+            <span style="font-size:24px">${icons[name]}</span>
+            <div style="flex:1">
+              <div style="font-size:15px;font-weight:800;color:${colors[name]}">${name}</div>
+              <div style="font-size:11px;color:var(--dim)">${descs[name]}</div>
+            </div>
+            <span style="color:var(--muted);font-size:16px">→</span>
+          </button>`;
+        }).join("")}
+      </div>
+
+      <div style="text-align:center;margin-top:16px">
+        <div style="color:var(--muted);font-size:11px;margin-bottom:8px">ou entre com outro nome:</div>
+        <div style="display:flex;gap:8px">
+          <input id="inp-user-custom" placeholder="Seu nome..." style="flex:1;padding:10px 14px;background:var(--surface2);
+            border:1px solid var(--surface3);border-radius:10px;color:var(--text);font-size:13px;font-family:var(--font);outline:none">
+          <button onclick="customLogin()" style="padding:10px 16px;background:var(--surface3);border:none;border-radius:10px;
+            color:var(--dim);font-weight:700;font-size:13px;cursor:pointer;font-family:var(--font)">Entrar</button>
+        </div>
+      </div>
+
+      <button class="btn-secondary" style="margin-top:14px" onclick="handleOfflineMode()">📴 Modo offline (sem sincronização)</button>
+
+      <div style="text-align:center;margin-top:16px">
+        <div style="font-size:10px;color:var(--muted)">🔒 Sincronização em tempo real via Firebase</div>
+        <div style="font-size:10px;color:var(--muted)">Dados disponíveis até 05/05/2026</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function quickLogin(name) {
+  currentUser = name;
+  localStorage.setItem("feirao_user", name);
+  connectFirebase(FIREBASE_CONFIG);
+}
+
+function customLogin() {
+  const name = document.getElementById("inp-user-custom").value.trim();
+  if (!name) { alert("Digite seu nome"); return; }
+  currentUser = name;
+  localStorage.setItem("feirao_user", name);
+  connectFirebase(FIREBASE_CONFIG);
+}
+
+function handleOfflineMode() {
+  const customEl = document.getElementById("inp-user-custom");
+  const name = customEl ? customEl.value.trim() : "";
+  if (!name) { 
+    const prompted = prompt("Digite seu nome (Ex: CEO, Luidhy, Israel):");
+    if (!prompted) return;
+    currentUser = prompted.trim();
+  } else {
+    currentUser = name;
+  }
+  localStorage.setItem("feirao_user", currentUser);
+
+  // Load from localStorage
+  const saved = localStorage.getItem("feirao_offline_data");
+  if (saved) state = JSON.parse(saved);
+  initState();
+  isOffline = true;
+
+  // Override save to use localStorage
+  dbRef = null;
+  window._offlineSave = () => { localStorage.setItem("feirao_offline_data", JSON.stringify(state)); };
+
+  currentView = "dashboard";
+  render();
+}
+
+function saveToFirebaseOrLocal() {
+  if (dbRef) saveToFirebase();
+  else if (window._offlineSave) window._offlineSave();
+}
+
+// ─── TOPBAR ───
+
+function renderTopbar() {
+  const userColors = { "CEO":"#e94560", "Luidhy":"#3b82f6", "Israel":"#f59e0b" };
+  const c = userColors[currentUser] || "#8b5cf6";
+  const time = new Date().toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" });
+  return `
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div style="flex:1">
+        <div class="topbar-title">SEMINOVOS EM ALTA</div>
+        <div class="topbar-sub">CARPINA-PE • CHECKLIST DE CAMPO • 06-07/ABR</div>
+      </div>
+      <div class="topbar-user" onclick="currentView='setup';render()">
+        <span class="dot" style="background:${c}"></span>
+        ${currentUser}
+      </div>
+      <div class="topbar-status">
+        <div class="${isOffline ? '' : 'online'}">${isOffline ? '📴 Offline' : '🟢 Online'}</div>
+        <div>${time}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── DASHBOARD ───
+
+function renderDashboard() {
+  const totalPct = Math.round(LOJAS.reduce((a, l) => a + getLojaProgress(state.lojas[l.id]), 0) / LOJAS.length);
+  const completed = LOJAS.filter(l => getLojaProgress(state.lojas[l.id]) === 100).length;
+  const cityDone = CITY_PHOTOS.filter(p => state.cityPhotos && state.cityPhotos[p.id]).length;
+
+  let html = `
+  <div class="stats-row">
+    <div class="stat-card" style="border-color:var(--red)">
+      <div class="stat-label">Progresso</div>
+      <div class="stat-value" style="color:var(--red)">${totalPct}%</div>
+    </div>
+    <div class="stat-card" style="border-color:var(--green)">
+      <div class="stat-label">Concluídas</div>
+      <div class="stat-value" style="color:var(--green)">${completed}/14</div>
+    </div>
+    <div class="stat-card" style="border-color:var(--purple);cursor:pointer" onclick="currentView='city';render()">
+      <div class="stat-label">Fotos Cidade</div>
+      <div class="stat-value" style="color:var(--purple)">${cityDone}/${CITY_PHOTOS.length}</div>
+    </div>
+  </div>`;
+
+  [{dia:1, label:"DIA 1 — 06/04 — Trecho Oeste", color:"var(--blue)"},
+   {dia:2, label:"DIA 2 — 07/04 — Trecho Leste", color:"var(--red)"}].forEach(sec => {
+    html += `<div class="day-header"><div class="day-bar" style="background:${sec.color}"></div>
+      <div class="day-title">${sec.label}</div></div>`;
+
+    LOJAS.filter(l => l.dia === sec.dia).forEach(loja => {
+      const ld = state.lojas[loja.id] || defaultLojaData();
+      const pct = getLojaProgress(ld);
+      const lastUser = ld.lastUpdatedBy ? `<span style="font-size:9px;color:var(--muted)">✏️ ${ld.lastUpdatedBy}</span>` : "";
+      html += `
+      <div class="loja-card" onclick="selectedLojaId='${loja.id}';currentView='loja';render()">
+        <div class="loja-num" style="background:${sec.color}">${loja.ordem}</div>
+        <div class="loja-info">
+          <div class="loja-name">${loja.nome}</div>
+          <div class="loja-addr">${loja.endereco} ${lastUser}</div>
+        </div>
+        ${badgeHTML(ld.status)}
+        <div class="ring-wrap">${progressRingSVG(pct)}</div>
+        <div class="loja-arrow">›</div>
+      </div>`;
+    });
+  });
+
+  // City photos
+  html += `
+  <div class="city-btn" onclick="currentView='city';render()">
+    <div style="font-size:26px">📸</div>
+    <div style="flex:1">
+      <div style="font-size:14px;font-weight:700;color:#c4b5fd">Fotos da Cidade de Carpina</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:2px">Checklist de imagens para artes</div>
+    </div>
+    <div style="font-size:15px;font-weight:900;color:#a78bfa">${cityDone}/${CITY_PHOTOS.length}</div>
+    <div class="loja-arrow">›</div>
+  </div>`;
+
+  return html;
+}
+
+// ─── LOJA DETAIL ───
+
+function renderLojaDetail() {
+  const loja = LOJAS.find(l => l.id === selectedLojaId);
+  if (!loja) return "";
+  const ld = state.lojas[loja.id] || defaultLojaData();
+  const pct = getLojaProgress(ld);
+  const scoreTotal = getScoreTotal(ld.scores);
+  const sc = getScoreClass(scoreTotal);
+
+  let html = `
+  <div class="detail-header">
+    <button class="btn-back" onclick="currentView='dashboard';render()">←</button>
+    <div style="flex:1;min-width:0">
+      <h2 style="font-size:17px;font-weight:900;color:#f1f1f1;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${loja.nome}</h2>
+      <div style="font-size:11px;color:var(--dim)">${loja.endereco} | ${loja.tel}</div>
+    </div>
+    <div class="ring-wrap">${progressRingSVG(pct, 48, 4)}</div>
+  </div>
+
+  <div class="status-row">
+    ${["pendente","em_andamento","concluida"].map(s => {
+      const labels = { pendente:"⏳ Pendente", em_andamento:"🔄 Em andamento", concluida:"✅ Concluída" };
+      return `<button class="status-btn ${ld.status===s?'active':''}"
+        onclick="updateLoja('${loja.id}','status','${s}');render()">${labels[s]}</button>`;
+    }).join("")}
+  </div>`;
+
+  // Identificação
+  html += renderSection("ident", "📋", "Identificação", `
+    <div class="field-grid">
+      ${fieldInput(loja.id, "responsavel", "Responsável", ld.responsavel)}
+      ${fieldInput(loja.id, "cargo", "Cargo", ld.cargo)}
+      ${fieldInput(loja.id, "whatsapp", "WhatsApp", ld.whatsapp)}
+      ${fieldInput(loja.id, "email", "E-mail", ld.email)}
+      ${fieldInput(loja.id, "instagram", "Instagram", ld.instagram, "@")}
+    </div>`);
+
+  // Scorecard
+  html += renderSection("score", "⭐", `Scorecard — ${scoreTotal}/40`,
+    SCORE_ITEMS.map(item => `
+      <div class="score-row">
+        <div class="score-info">
+          <div class="score-name">${item.label}</div>
+          <div class="score-desc">${item.desc}</div>
+        </div>
+        <div class="score-btns">
+          ${[1,2,3,4,5].map(n => `<button class="score-btn ${(ld.scores && ld.scores[item.id])==n?'on':'off'}"
+            onclick="updateLoja('${loja.id}','scores.${item.id}',${n});render()">${n}</button>`).join("")}
+        </div>
+      </div>`).join(""),
+    `<span class="score-badge" style="color:${sc.color};background:${sc.color}22">${sc.label}</span>`);
+
+  // Material
+  html += renderSection("mat", "📦", "Material Coletado",
+    MATERIAL_ITEMS.map(item => renderCheckItem(loja.id, "materials", item.id, item.label,
+      item.resp === "luidhy" ? tagHTML("Luidhy","#3b82f6") : tagHTML("Israel","#f59e0b"),
+      ld.materials && ld.materials[item.id])).join(""));
+
+  // Confirmação
+  html += renderSection("conf", "✅", "Confirmação de Participação",
+    CONFIRM_ITEMS.map(item => renderCheckItem(loja.id, "confirms", item.id, item.label, "", ld.confirms && ld.confirms[item.id])).join(""));
+
+  // Veículos
+  html += renderSection("veic", "🚗", "Veículos para o Feirão", `
+    <div class="field-grid">
+      ${fieldInput(loja.id, "qtdVeiculos", "Quantidade prevista", ld.qtdVeiculos, "", "number")}
+      ${fieldInput(loja.id, "faixaPreco", "Faixa de preço", ld.faixaPreco, "Ex: 30-50mil")}
+      ${fieldInput(loja.id, "tipos", "Tipos predominantes", ld.tipos, "SUV, Popular...")}
+      ${fieldInput(loja.id, "marcas", "Marcas fortes", ld.marcas, "Fiat, VW...")}
+    </div>`);
+
+  // Vendedores
+  html += renderSection("vend", "👥", "Vendedores-chave",
+    [0,1,2,3].map(i => `
+      <div class="vend-row">
+        <div class="field" style="flex:2">
+          <label class="field-label">Vendedor ${i+1}</label>
+          <input class="field-input" value="${(ld.vendedores && ld.vendedores[i]) || ''}"
+            onchange="let a=[...(state.lojas['${loja.id}'].vendedores||['','','',''])];a[${i}]=this.value;updateLoja('${loja.id}','vendedores',a)">
+        </div>
+        <div class="field" style="flex:1">
+          <label class="field-label">Telefone</label>
+          <input class="field-input" value="${(ld.vendedoresTel && ld.vendedoresTel[i]) || ''}"
+            onchange="let a=[...(state.lojas['${loja.id}'].vendedoresTel||['','','',''])];a[${i}]=this.value;updateLoja('${loja.id}','vendedoresTel',a)">
+        </div>
+      </div>`).join(""));
+
+  // Observações
+  html += renderSection("obs", "📝", "Observações", `
+    <textarea class="field-input field-textarea" placeholder="Anotações livres..."
+      onchange="updateLoja('${loja.id}','observacoes',this.value)">${ld.observacoes || ''}</textarea>`);
+
+  return html;
+}
+
+function renderSection(secId, icon, title, body, extra = "") {
+  const isOpen = openSections[secId] !== false; // default open
+  return `
+  <div class="section">
+    <div class="section-head" onclick="openSections['${secId}']=!${isOpen};render()">
+      <span class="icon">${icon}</span>
+      <span class="title">${title}</span>
+      ${extra}
+      <span class="arrow ${isOpen ? 'open' : ''}">›</span>
+    </div>
+    ${isOpen ? `<div class="section-body">${body}</div>` : ""}
+  </div>`;
+}
+
+function renderCheckItem(lojaId, group, itemId, label, tagHtml, checked) {
+  return `
+  <div class="check-item" onclick="updateLoja('${lojaId}','${group}.${itemId}',${!checked});render()">
+    <div class="checkbox ${checked ? 'checked' : ''}"></div>
+    <span class="check-label ${checked ? 'done' : ''}">${label}</span>
+    ${tagHtml}
+  </div>`;
+}
+
+function fieldInput(lojaId, field, label, value, placeholder = "", type = "text") {
+  return `
+  <div class="field">
+    <label class="field-label">${label}</label>
+    <input class="field-input" type="${type}" value="${value || ''}" placeholder="${placeholder}"
+      onchange="updateLoja('${lojaId}','${field}',this.value)"
+      onfocus="this.style.borderColor='var(--red)'" onblur="this.style.borderColor='var(--surface3)'">
+  </div>`;
+}
+
+// ─── CITY PHOTOS ───
+
+function renderCityPhotos() {
+  const done = CITY_PHOTOS.filter(p => state.cityPhotos && state.cityPhotos[p.id]).length;
+  let html = `
+  <div class="detail-header">
+    <button class="btn-back" onclick="currentView='dashboard';render()">←</button>
+    <div style="flex:1">
+      <h2 style="font-size:17px;font-weight:900;color:#c4b5fd;margin:0">📸 Fotos da Cidade</h2>
+      <div style="font-size:11px;color:var(--dim)">Registros de Carpina para artes e divulgação</div>
+    </div>
+    <div style="font-size:18px;font-weight:900;color:#a78bfa">${done}/${CITY_PHOTOS.length}</div>
+  </div>`;
+
+  CITY_PHOTOS.forEach(p => {
+    const checked = state.cityPhotos && state.cityPhotos[p.id];
+    html += `
+    <div class="check-item" onclick="if(!state.cityPhotos)state.cityPhotos={};state.cityPhotos['${p.id}']=!${!!checked};saveToFirebase();render()">
+      <div class="checkbox ${checked ? 'checked' : ''}"></div>
+      <span class="check-label ${checked ? 'done' : ''}">${p.label}</span>
+      ${tagHTML("Israel", "#f59e0b")}
+    </div>`;
+  });
+
+  return html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+
+initState();
+render();
+
+// Auto-reconnect if user already logged in before
+const savedUser = localStorage.getItem("feirao_user");
+if (savedUser) {
+  currentUser = savedUser;
+  setTimeout(() => {
+    try {
+      connectFirebase(FIREBASE_CONFIG);
+    } catch(e) {
+      console.error("Auto-reconnect failed:", e);
+    }
+  }, 500);
+}
+</script>
+</body>
+</html>
