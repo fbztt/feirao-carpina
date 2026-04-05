@@ -142,19 +142,6 @@
   .check-label.done { color: var(--green); text-decoration: line-through; }
   .tag { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px; flex-shrink: 0; }
 
-  /* SCORE ROW */
-  .score-row { display: flex; align-items: center; gap: 8px; padding: 10px 0;
-    border-bottom: 1px solid var(--surface2); }
-  .score-row:last-child { border-bottom: none; }
-  .score-info { flex: 1; min-width: 0; }
-  .score-name { font-size: 13px; font-weight: 600; color: var(--text); }
-  .score-desc { font-size: 10px; color: var(--muted); margin-top: 1px; }
-  .score-btns { display: flex; gap: 4px; }
-  .score-btn { width: 30px; height: 30px; border-radius: 8px; border: none; cursor: pointer;
-    font-weight: 800; font-size: 12px; transition: all 0.1s; font-family: var(--font); }
-  .score-btn.off { background: var(--surface2); color: var(--muted); }
-  .score-btn.on { background: var(--red); color: white; transform: scale(1.1); }
-
   /* INPUTS */
   .field { margin-bottom: 12px; }
   .field-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase;
@@ -167,10 +154,6 @@
   .field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
   .vend-row { display: flex; gap: 8px; margin-bottom: 8px; }
   .vend-row .field { margin-bottom: 0; }
-
-  /* SCORE SUMMARY */
-  .score-summary { display: flex; align-items: center; gap: 8px; }
-  .score-badge { font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 8px; }
 
   /* SYNC INDICATOR */
   .sync-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
@@ -220,17 +203,6 @@ const LOJAS = [
   { id:"vivant", nome:"Seminovos Vivant", endereco:"BR-408, 945 - Bairro Novo", tel:"(81) 3621-6653", dia:2, ordem:7 },
 ];
 
-const SCORE_ITEMS = [
-  { id:"tempo", label:"Tempo de mercado", desc:"<1ano=1 | 1-3=2 | 3-5=3 | 5-10=4 | >10=5" },
-  { id:"estoque", label:"Volume de estoque", desc:"<10=1 | 10-20=2 | 20-40=3 | 40-70=4 | >70=5" },
-  { id:"estrutura", label:"Estrutura física", desc:"Fachada, organização, pátio" },
-  { id:"atendimento", label:"Atendimento", desc:"Recepção, cordialidade" },
-  { id:"digital", label:"Presença digital", desc:"Instagram, site, Google" },
-  { id:"reputacao", label:"Reputação online", desc:"Reviews, boca-a-boca" },
-  { id:"variedade", label:"Variedade veículos", desc:"Marcas, faixas, tipos" },
-  { id:"docs", label:"Documentação", desc:"CNPJ, alvará, fiscal" },
-];
-
 const MATERIAL_ITEMS = [
   { id:"logo", label:"Logo alta resolução", resp:"luidhy" },
   { id:"logo_enviado", label:"Logo enviado à equipe", resp:"luidhy" },
@@ -249,6 +221,21 @@ const CONFIRM_ITEMS = [
   { id:"qtd_veiculos", label:"Confirmou qtd veículos" },
   { id:"regulamento", label:"Recebeu regulamento" },
   { id:"contato", label:"Indicou contato p/ comunicação" },
+];
+
+const CIE_ITEMS = [
+  { id:"score_empresa_cadastro", label:"Score da empresa — cadastro enviado" },
+  { id:"score_empresa_respondido", label:"Score da empresa — respondido" },
+  { id:"score_func_cadastro", label:"Score dos funcionários — cadastro enviado" },
+  { id:"score_func_respondido", label:"Score dos funcionários — respondido" },
+  { id:"cie", label:"CIE - Central de Inteligência do Evento" },
+  { id:"cartilha", label:"Cartilha de Orientações do Feirão + SIC" },
+  { id:"planilha_estoque", label:"Planilha de estoque de veículos preenchida" },
+];
+
+const TRAFEGO_ITEMS = [
+  { id:"faz_trafego", label:"Faz tráfego pago?" },
+  { id:"precisa_suporte", label:"Precisa de suporte para tráfego?" },
 ];
 
 const CITY_PHOTOS = [
@@ -277,10 +264,15 @@ let isOffline = false;
 
 function defaultLojaData() {
   return {
-    scores:{}, materials:{}, confirms:{},
+    materials:{}, confirms:{}, cie:{}, trafego:{},
     vendedores:["","","",""], vendedoresTel:["","","",""],
     responsavel:"", cargo:"", whatsapp:"", email:"", instagram:"",
     qtdVeiculos:"", faixaPreco:"", tipos:"", marcas:"",
+    codigoEmpresa:"", qtdVendedores:"", qtdFuncScoreRespondido:"",
+    respComunicacao:"", whatsappComunicacao:"",
+    respLeads:"", whatsappLeads:"", emailLeads:"",
+    orcamentoTrafego:"", integrador:"",
+    vendaDia1:"", vendaDia2:"", vendaDia3:"", vendaDia4:"",
     observacoes:"", status:"pendente", lastUpdate:null
   };
 }
@@ -368,22 +360,11 @@ function showSyncToast(msg) {
 function getLojaProgress(ld) {
   if (!ld) return 0;
   let total = 0, done = 0;
-  SCORE_ITEMS.forEach(s => { total++; if (ld.scores && ld.scores[s.id]) done++; });
   MATERIAL_ITEMS.forEach(m => { total++; if (ld.materials && ld.materials[m.id]) done++; });
   CONFIRM_ITEMS.forEach(c => { total++; if (ld.confirms && ld.confirms[c.id]) done++; });
+  CIE_ITEMS.forEach(c => { total++; if (ld.cie && ld.cie[c.id]) done++; });
+  TRAFEGO_ITEMS.forEach(t => { total++; if (ld.trafego && ld.trafego[t.id]) done++; });
   return total > 0 ? Math.round((done / total) * 100) : 0;
-}
-
-function getScoreTotal(scores) {
-  if (!scores) return 0;
-  return Object.values(scores).reduce((a, b) => a + (parseInt(b) || 0), 0);
-}
-
-function getScoreClass(total) {
-  if (total >= 32) return { label: "Ouro", color: "#f59e0b" };
-  if (total >= 24) return { label: "Prata", color: "#9ca3af" };
-  if (total >= 16) return { label: "Bronze", color: "#b45309" };
-  return { label: "Revisar", color: "#ef4444" };
 }
 
 function progressRingSVG(pct, size = 44, stroke = 4) {
@@ -438,6 +419,11 @@ const FIREBASE_CONFIG = {
   appId: "1:771386816260:web:3e3b073edd1a94c5de4251"
 };
 
+// ╔═══════════════════════════════════════════════╗
+// ║  SENHA DO CEO — mude aqui quando quiser       ║
+// ╚═══════════════════════════════════════════════╝
+const CEO_PASSWORD = "carango2026";
+
 function renderSetup() {
   return `
   <div class="setup-screen">
@@ -463,7 +449,7 @@ function renderSetup() {
               <div style="font-size:15px;font-weight:800;color:${colors[name]}">${name}</div>
               <div style="font-size:11px;color:var(--dim)">${descs[name]}</div>
             </div>
-            <span style="color:var(--muted);font-size:16px">→</span>
+            <span style="color:var(--muted);font-size:16px">${name === "CEO" ? "🔒" : "→"}</span>
           </button>`;
         }).join("")}
       </div>
@@ -489,6 +475,13 @@ function renderSetup() {
 }
 
 function quickLogin(name) {
+  if (name === "CEO") {
+    const senha = prompt("🔒 Digite a senha do CEO:");
+    if (senha !== CEO_PASSWORD) {
+      alert("❌ Senha incorreta.");
+      return;
+    }
+  }
   currentUser = name;
   localStorage.setItem("feirao_user", name);
   connectFirebase(FIREBASE_CONFIG);
@@ -626,8 +619,6 @@ function renderLojaDetail() {
   if (!loja) return "";
   const ld = state.lojas[loja.id] || defaultLojaData();
   const pct = getLojaProgress(ld);
-  const scoreTotal = getScoreTotal(ld.scores);
-  const sc = getScoreClass(scoreTotal);
 
   let html = `
   <div class="detail-header">
@@ -657,21 +648,6 @@ function renderLojaDetail() {
       ${fieldInput(loja.id, "instagram", "Instagram", ld.instagram, "@")}
     </div>`);
 
-  // Scorecard
-  html += renderSection("score", "⭐", `Scorecard — ${scoreTotal}/40`,
-    SCORE_ITEMS.map(item => `
-      <div class="score-row">
-        <div class="score-info">
-          <div class="score-name">${item.label}</div>
-          <div class="score-desc">${item.desc}</div>
-        </div>
-        <div class="score-btns">
-          ${[1,2,3,4,5].map(n => `<button class="score-btn ${(ld.scores && ld.scores[item.id])==n?'on':'off'}"
-            onclick="updateLoja('${loja.id}','scores.${item.id}',${n});render()">${n}</button>`).join("")}
-        </div>
-      </div>`).join(""),
-    `<span class="score-badge" style="color:${sc.color};background:${sc.color}22">${sc.label}</span>`);
-
   // Material
   html += renderSection("mat", "📦", "Material Coletado",
     MATERIAL_ITEMS.map(item => renderCheckItem(loja.id, "materials", item.id, item.label,
@@ -682,10 +658,37 @@ function renderLojaDetail() {
   html += renderSection("conf", "✅", "Confirmação de Participação",
     CONFIRM_ITEMS.map(item => renderCheckItem(loja.id, "confirms", item.id, item.label, "", ld.confirms && ld.confirms[item.id])).join(""));
 
+  // CIE + Scores + Cartilha
+  html += renderSection("cie", "🎯", "CIE / Scores / Cartilha",
+    CIE_ITEMS.map(item => renderCheckItem(loja.id, "cie", item.id, item.label, "", ld.cie && ld.cie[item.id])).join("") + `
+    <div class="field-grid" style="margin-top:12px">
+      ${fieldInput(loja.id, "codigoEmpresa", "Código da empresa", ld.codigoEmpresa)}
+      ${fieldInput(loja.id, "qtdFuncScoreRespondido", "Qtd. funcionários score respondido", ld.qtdFuncScoreRespondido, "", "number")}
+    </div>`);
+
+  // Comunicação e Leads
+  html += renderSection("comunic", "📡", "Comunicação e Leads", `
+    <div class="field-grid">
+      ${fieldInput(loja.id, "respComunicacao", "Responsável comunicação", ld.respComunicacao)}
+      ${fieldInput(loja.id, "whatsappComunicacao", "WhatsApp comunicação", ld.whatsappComunicacao)}
+      ${fieldInput(loja.id, "respLeads", "Responsável pelos leads", ld.respLeads)}
+      ${fieldInput(loja.id, "whatsappLeads", "WhatsApp leads", ld.whatsappLeads)}
+      ${fieldInput(loja.id, "emailLeads", "E-mail leads", ld.emailLeads)}
+    </div>`);
+
+  // Tráfego Pago
+  html += renderSection("trafego", "📣", "Tráfego Pago",
+    TRAFEGO_ITEMS.map(item => renderCheckItem(loja.id, "trafego", item.id, item.label, "", ld.trafego && ld.trafego[item.id])).join("") + `
+    <div class="field-grid" style="margin-top:12px">
+      ${fieldInput(loja.id, "orcamentoTrafego", "Orçamento para tráfego", ld.orcamentoTrafego, "R$...")}
+      ${fieldInput(loja.id, "integrador", "Integrador", ld.integrador)}
+    </div>`);
+
   // Veículos
   html += renderSection("veic", "🚗", "Veículos para o Feirão", `
     <div class="field-grid">
       ${fieldInput(loja.id, "qtdVeiculos", "Quantidade prevista", ld.qtdVeiculos, "", "number")}
+      ${fieldInput(loja.id, "qtdVendedores", "Qtd. vendedores da loja", ld.qtdVendedores, "", "number")}
       ${fieldInput(loja.id, "faixaPreco", "Faixa de preço", ld.faixaPreco, "Ex: 30-50mil")}
       ${fieldInput(loja.id, "tipos", "Tipos predominantes", ld.tipos, "SUV, Popular...")}
       ${fieldInput(loja.id, "marcas", "Marcas fortes", ld.marcas, "Fiat, VW...")}
@@ -706,6 +709,15 @@ function renderLojaDetail() {
             onchange="let a=[...(state.lojas['${loja.id}'].vendedoresTel||['','','',''])];a[${i}]=this.value;updateLoja('${loja.id}','vendedoresTel',a)">
         </div>
       </div>`).join(""));
+
+  // Vendas no Evento (preenchido durante o feirão)
+  html += renderSection("vendas", "💰", "Vendas no Evento", `
+    <div class="field-grid">
+      ${fieldInput(loja.id, "vendaDia1", "Vendas Dia 1 (23/04)", ld.vendaDia1, "Qtd ou R$")}
+      ${fieldInput(loja.id, "vendaDia2", "Vendas Dia 2 (24/04)", ld.vendaDia2, "Qtd ou R$")}
+      ${fieldInput(loja.id, "vendaDia3", "Vendas Dia 3 (25/04)", ld.vendaDia3, "Qtd ou R$")}
+      ${fieldInput(loja.id, "vendaDia4", "Vendas Dia 4 (26/04)", ld.vendaDia4, "Qtd ou R$")}
+    </div>`);
 
   // Observações
   html += renderSection("obs", "📝", "Observações", `
