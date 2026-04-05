@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exportar Dados — Feirão Carpina</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0d1117; color: #e2e8f0; font-family: 'Segoe UI', -apple-system, sans-serif;
+    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .card { background: #16213e; border-radius: 20px; padding: 36px 28px; max-width: 520px; width: 100%;
+    border: 1px solid #2a2a3e; }
+  h1 { font-size: 22px; font-weight: 900; color: #e94560; margin-bottom: 4px; }
+  .sub { font-size: 13px; color: #9ca3af; margin-bottom: 24px; line-height: 1.5; }
+  .step { background: #1a1a2e; border-radius: 12px; padding: 18px; margin-bottom: 14px;
+    border-left: 4px solid #0f3460; }
+  .step-num { font-size: 11px; font-weight: 800; color: #0f3460; letter-spacing: 1px;
+    text-transform: uppercase; margin-bottom: 6px; }
+  .step p { font-size: 13px; color: #cbd5e1; line-height: 1.5; }
+  .step code { background: #2a2a3e; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #f59e0b; }
+
+  .drop-zone { border: 2px dashed #3a3a4e; border-radius: 14px; padding: 40px 20px; text-align: center;
+    cursor: pointer; transition: all 0.2s; margin-bottom: 16px; }
+  .drop-zone:hover, .drop-zone.over { border-color: #e94560; background: #1a0a10; }
+  .drop-zone .icon { font-size: 40px; margin-bottom: 10px; }
+  .drop-zone .text { font-size: 14px; color: #9ca3af; }
+  .drop-zone .text strong { color: #e94560; }
+  input[type="file"] { display: none; }
+
+  .btn { width: 100%; padding: 14px; background: #e94560; border: none; border-radius: 12px;
+    color: white; font-weight: 800; font-size: 14px; cursor: pointer; font-family: inherit;
+    transition: all 0.15s; letter-spacing: 0.5px; display: none; }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.show { display: block; }
+
+  .btn-direct { width: 100%; padding: 14px; background: #10b981; border: none; border-radius: 12px;
+    color: white; font-weight: 800; font-size: 14px; cursor: pointer; font-family: inherit;
+    transition: all 0.15s; letter-spacing: 0.5px; margin-bottom: 14px; }
+  .btn-direct:active { transform: scale(0.97); }
+
+  .status { text-align: center; font-size: 13px; margin-top: 12px; min-height: 20px; }
+  .status.ok { color: #10b981; }
+  .status.err { color: #ef4444; }
+
+  .divider { text-align: center; color: #4a5568; font-size: 12px; margin: 20px 0; position: relative; }
+  .divider::before, .divider::after { content: ""; position: absolute; top: 50%; width: 35%;
+    height: 1px; background: #2a2a3e; }
+  .divider::before { left: 0; } .divider::after { right: 0; }
+
+  .preview { background: #1a1a2e; border-radius: 10px; padding: 14px; margin-top: 14px;
+    font-size: 12px; color: #9ca3af; max-height: 200px; overflow-y: auto; display: none; }
+  .preview.show { display: block; }
+  .preview table { width: 100%; border-collapse: collapse; }
+  .preview th { text-align: left; color: #f59e0b; padding: 4px 8px; border-bottom: 1px solid #2a2a3e;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .preview td { padding: 4px 8px; border-bottom: 1px solid #1a1a2e; font-size: 11px; color: #cbd5e1; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>📊 Exportar Dados do Feirão</h1>
+  <p class="sub">Converte o JSON exportado do Firebase em uma planilha Excel organizada com todas as informações das lojas.</p>
+
+  <button class="btn-direct" onclick="fetchDirect()">
+    🔄 Buscar dados direto do Firebase (ao vivo)
+  </button>
+
+  <div class="divider">ou importe o arquivo JSON</div>
+
+  <div class="step">
+    <div class="step-num">Como exportar do Firebase</div>
+    <p>Abra o <strong>Firebase Console</strong> → Realtime Database → clique nos <code>⋮</code> ao lado da URL → <strong>"Exportar JSON"</strong></p>
+  </div>
+
+  <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    <div class="icon">📁</div>
+    <div class="text">Arraste o arquivo <strong>.json</strong> aqui<br>ou clique para selecionar</div>
+  </div>
+  <input type="file" id="fileInput" accept=".json">
+
+  <button class="btn" id="btnExport" onclick="exportExcel()">📥 Gerar Planilha Excel</button>
+
+  <div class="status" id="status"></div>
+  <div class="preview" id="preview"></div>
+</div>
+
+<script>
+const FIREBASE_URL = "https://feirao-carpina-default-rtdb.firebaseio.com";
+
+const LOJAS_NAMES = {
+  jm: "JM Veículos", jr: "JR Veículos", guivel: "Guivel", ad: "AD Veículos",
+  pato: "Pato Veículos", jp: "JP Veículos", supercarro: "SuperCarro",
+  mais: "Mais Veículos", multivel: "Multivel", rg: "RG Veículos",
+  sd: "SD Multimarcas", gfc: "GFC Veículos", tiao: "Tião Veículos",
+  vivant: "Seminovos Vivant"
+};
+
+const LOJAS_ORDER = ["jm","jr","guivel","ad","pato","jp","supercarro",
+  "mais","multivel","rg","sd","gfc","tiao","vivant"];
+
+const SCORE_LABELS = {
+  tempo: "Tempo de mercado", estoque: "Volume de estoque", estrutura: "Estrutura física",
+  atendimento: "Atendimento", digital: "Presença digital", reputacao: "Reputação online",
+  variedade: "Variedade veículos", docs: "Documentação"
+};
+
+const MATERIAL_LABELS = {
+  logo: "Logo alta resolução", logo_enviado: "Logo enviado", foto_fachada: "Foto fachada",
+  foto_patio: "Foto pátio", foto_veiculos: "Fotos veículos", video: "Vídeo institucional",
+  foto_equipe: "Foto equipe", dados_vendedores: "Dados vendedores"
+};
+
+const CONFIRM_LABELS = {
+  datas: "Ciente das datas", local: "Ciente do local", bradesco: "Ciente Bradesco",
+  qtd_veiculos: "Confirmou qtd veículos", regulamento: "Recebeu regulamento",
+  contato: "Indicou contato"
+};
+
+let loadedData = null;
+
+// Drag & drop
+const dropZone = document.getElementById("dropZone");
+const fileInput = document.getElementById("fileInput");
+
+dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("over"); });
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("over"));
+dropZone.addEventListener("drop", e => {
+  e.preventDefault(); dropZone.classList.remove("over");
+  handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener("change", e => handleFile(e.target.files[0]));
+
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      loadedData = JSON.parse(e.target.result);
+      // Handle nested structure (Firebase exports with root key)
+      if (loadedData["feirao-carpina"]) loadedData = loadedData["feirao-carpina"];
+      setStatus(`✓ Arquivo carregado: ${Object.keys(loadedData.lojas || {}).length} lojas encontradas`, "ok");
+      document.getElementById("btnExport").classList.add("show");
+      showPreview(loadedData);
+    } catch (err) {
+      setStatus("✗ Erro ao ler o arquivo JSON", "err");
+    }
+  };
+  reader.readAsText(file);
+}
+
+async function fetchDirect() {
+  setStatus("Buscando dados do Firebase...", "");
+  try {
+    const res = await fetch(FIREBASE_URL + "/feirao-carpina.json");
+    if (!res.ok) throw new Error("Erro " + res.status);
+    loadedData = await res.json();
+    if (!loadedData || !loadedData.lojas) throw new Error("Dados vazios");
+    setStatus(`✓ ${Object.keys(loadedData.lojas).length} lojas carregadas do Firebase`, "ok");
+    document.getElementById("btnExport").classList.add("show");
+    showPreview(loadedData);
+  } catch (err) {
+    setStatus("✗ Erro ao buscar: " + err.message, "err");
+  }
+}
+
+function showPreview(data) {
+  if (!data.lojas) return;
+  let html = "<table><tr><th>Loja</th><th>Status</th><th>Score</th><th>Responsável</th></tr>";
+  LOJAS_ORDER.forEach(id => {
+    const l = data.lojas[id];
+    if (!l) return;
+    const name = LOJAS_NAMES[id] || id;
+    const status = l.status || "pendente";
+    const scoreTotal = Object.values(l.scores || {}).reduce((a,b) => a + (parseInt(b)||0), 0);
+    html += `<tr><td>${name}</td><td>${status}</td><td>${scoreTotal}/40</td><td>${l.responsavel || "-"}</td></tr>`;
+  });
+  html += "</table>";
+  const el = document.getElementById("preview");
+  el.innerHTML = html;
+  el.classList.add("show");
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.className = "status " + (type || "");
+}
+
+function exportExcel() {
+  if (!loadedData || !loadedData.lojas) { setStatus("Sem dados para exportar", "err"); return; }
+
+  const wb = XLSX.utils.book_new();
+
+  // ═══════════════════════════════════════
+  // ABA 1: RESUMO GERAL
+  // ═══════════════════════════════════════
+  const resumoRows = [
+    ["FEIRÃO SEMINOVOS EM ALTA — CARPINA-PE"],
+    ["Relatório de Checklist de Campo — 06 e 07 de Abril de 2026"],
+    [],
+    ["#", "Loja", "Dia", "Status", "Score Total", "Classificação", "Responsável", "WhatsApp",
+     "Instagram", "Qtd Veículos", "Faixa Preço", "Última Atualização", "Atualizado por"]
+  ];
+
+  LOJAS_ORDER.forEach((id, i) => {
+    const l = loadedData.lojas[id] || {};
+    const scoreTotal = Object.values(l.scores || {}).reduce((a,b) => a + (parseInt(b)||0), 0);
+    const cls = scoreTotal >= 32 ? "Ouro" : scoreTotal >= 24 ? "Prata" : scoreTotal >= 16 ? "Bronze" : "Revisar";
+    const dia = i < 7 ? "Dia 1" : "Dia 2";
+    const lastUpdate = l.lastUpdate ? new Date(l.lastUpdate).toLocaleString("pt-BR") : "-";
+    resumoRows.push([
+      i + 1, LOJAS_NAMES[id] || id, dia, l.status || "pendente", scoreTotal, cls,
+      l.responsavel || "", l.whatsapp || "", l.instagram || "",
+      l.qtdVeiculos || "", l.faixaPreco || "", lastUpdate, l.lastUpdatedBy || ""
+    ]);
+  });
+
+  const wsResumo = XLSX.utils.aoa_to_sheet(resumoRows);
+  wsResumo["!cols"] = [
+    {wch:4},{wch:22},{wch:8},{wch:14},{wch:12},{wch:14},{wch:22},{wch:18},
+    {wch:18},{wch:14},{wch:14},{wch:20},{wch:14}
+  ];
+  wsResumo["!merges"] = [{s:{r:0,c:0},e:{r:0,c:12}},{s:{r:1,c:0},e:{r:1,c:12}}];
+  XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo Geral");
+
+  // ═══════════════════════════════════════
+  // ABA 2: SCORECARD DETALHADO
+  // ═══════════════════════════════════════
+  const scoreHeader = ["Loja", ...Object.values(SCORE_LABELS), "TOTAL", "Classificação"];
+  const scoreRows = [
+    ["SCORECARD DETALHADO — TODAS AS LOJAS"],
+    [],
+    scoreHeader
+  ];
+
+  LOJAS_ORDER.forEach(id => {
+    const l = loadedData.lojas[id] || {};
+    const scores = l.scores || {};
+    const row = [LOJAS_NAMES[id] || id];
+    let total = 0;
+    Object.keys(SCORE_LABELS).forEach(key => {
+      const val = parseInt(scores[key]) || 0;
+      row.push(val || "");
+      total += val;
+    });
+    row.push(total);
+    row.push(total >= 32 ? "Ouro" : total >= 24 ? "Prata" : total >= 16 ? "Bronze" : "Revisar");
+    scoreRows.push(row);
+  });
+
+  const wsScore = XLSX.utils.aoa_to_sheet(scoreRows);
+  wsScore["!cols"] = [{wch:22},...Object.keys(SCORE_LABELS).map(()=>({wch:16})),{wch:8},{wch:14}];
+  wsScore["!merges"] = [{s:{r:0,c:0},e:{r:0,c:scoreHeader.length-1}}];
+  XLSX.utils.book_append_sheet(wb, wsScore, "Scorecard");
+
+  // ═══════════════════════════════════════
+  // ABA 3: MATERIAL COLETADO
+  // ═══════════════════════════════════════
+  const matHeader = ["Loja", ...Object.values(MATERIAL_LABELS), "% Completo"];
+  const matRows = [["MATERIAL COLETADO POR LOJA"],[],matHeader];
+
+  LOJAS_ORDER.forEach(id => {
+    const l = loadedData.lojas[id] || {};
+    const mats = l.materials || {};
+    const row = [LOJAS_NAMES[id] || id];
+    let done = 0;
+    Object.keys(MATERIAL_LABELS).forEach(key => {
+      const val = mats[key] ? "✓" : "✗";
+      if (mats[key]) done++;
+      row.push(val);
+    });
+    row.push(Math.round((done / Object.keys(MATERIAL_LABELS).length) * 100) + "%");
+    matRows.push(row);
+  });
+
+  const wsMat = XLSX.utils.aoa_to_sheet(matRows);
+  wsMat["!cols"] = [{wch:22},...Object.keys(MATERIAL_LABELS).map(()=>({wch:16})),{wch:12}];
+  wsMat["!merges"] = [{s:{r:0,c:0},e:{r:0,c:matHeader.length-1}}];
+  XLSX.utils.book_append_sheet(wb, wsMat, "Material Coletado");
+
+  // ═══════════════════════════════════════
+  // ABA 4: CONFIRMAÇÕES
+  // ═══════════════════════════════════════
+  const confHeader = ["Loja", ...Object.values(CONFIRM_LABELS), "% Completo"];
+  const confRows = [["CONFIRMAÇÃO DE PARTICIPAÇÃO"],[],confHeader];
+
+  LOJAS_ORDER.forEach(id => {
+    const l = loadedData.lojas[id] || {};
+    const confs = l.confirms || {};
+    const row = [LOJAS_NAMES[id] || id];
+    let done = 0;
+    Object.keys(CONFIRM_LABELS).forEach(key => {
+      const val = confs[key] ? "✓" : "✗";
+      if (confs[key]) done++;
+      row.push(val);
+    });
+    row.push(Math.round((done / Object.keys(CONFIRM_LABELS).length) * 100) + "%");
+    confRows.push(row);
+  });
+
+  const wsConf = XLSX.utils.aoa_to_sheet(confRows);
+  wsConf["!cols"] = [{wch:22},...Object.keys(CONFIRM_LABELS).map(()=>({wch:18})),{wch:12}];
+  wsConf["!merges"] = [{s:{r:0,c:0},e:{r:0,c:confHeader.length-1}}];
+  XLSX.utils.book_append_sheet(wb, wsConf, "Confirmações");
+
+  // ═══════════════════════════════════════
+  // ABA 5: VENDEDORES
+  // ═══════════════════════════════════════
+  const vendRows = [
+    ["VENDEDORES-CHAVE POR LOJA"],
+    [],
+    ["Loja", "Vendedor 1", "Tel 1", "Vendedor 2", "Tel 2", "Vendedor 3", "Tel 3", "Vendedor 4", "Tel 4"]
+  ];
+
+  LOJAS_ORDER.forEach(id => {
+    const l = loadedData.lojas[id] || {};
+    const v = l.vendedores || ["","","",""];
+    const t = l.vendedoresTel || ["","","",""];
+    vendRows.push([LOJAS_NAMES[id] || id, v[0]||"", t[0]||"", v[1]||"", t[1]||"", v[2]||"", t[2]||"", v[3]||"", t[3]||""]);
+  });
+
+  const wsVend = XLSX.utils.aoa_to_sheet(vendRows);
+  wsVend["!cols"] = [{wch:22},{wch:20},{wch:16},{wch:20},{wch:16},{wch:20},{wch:16},{wch:20},{wch:16}];
+  wsVend["!merges"] = [{s:{r:0,c:0},e:{r:0,c:8}}];
+  XLSX.utils.book_append_sheet(wb, wsVend, "Vendedores");
+
+  // ═══════════════════════════════════════
+  // ABA 6: VEÍCULOS
+  // ═══════════════════════════════════════
+  const veicRows = [
+    ["VEÍCULOS PREVISTOS PARA O FEIRÃO"],
+    [],
+    ["Loja", "Quantidade", "Faixa de Preço", "Tipos", "Marcas Fortes"]
+  ];
+
+  LOJAS_ORDER.forEach(id => {
+    const l = loadedData.lojas[id] || {};
+    veicRows.push([LOJAS_NAMES[id] || id, l.qtdVeiculos||"", l.faixaPreco||"", l.tipos||"", l.marcas||""]);
+  });
+
+  const wsVeic = XLSX.utils.aoa_to_sheet(veicRows);
+  wsVeic["!cols"] = [{wch:22},{wch:12},{wch:18},{wch:24},{wch:28}];
+  wsVeic["!merges"] = [{s:{r:0,c:0},e:{r:0,c:4}}];
+  XLSX.utils.book_append_sheet(wb, wsVeic, "Veículos");
+
+  // ═══════════════════════════════════════
+  // ABA 7: OBSERVAÇÕES
+  // ═══════════════════════════════════════
+  const obsRows = [
+    ["OBSERVAÇÕES POR LOJA"],
+    [],
+    ["Loja", "Observações"]
+  ];
+
+  LOJAS_ORDER.forEach(id => {
+    const l = loadedData.lojas[id] || {};
+    obsRows.push([LOJAS_NAMES[id] || id, l.observacoes || ""]);
+  });
+
+  const wsObs = XLSX.utils.aoa_to_sheet(obsRows);
+  wsObs["!cols"] = [{wch:22},{wch:80}];
+  wsObs["!merges"] = [{s:{r:0,c:0},e:{r:0,c:1}}];
+  XLSX.utils.book_append_sheet(wb, wsObs, "Observações");
+
+  // ═══════════════════════════════════════
+  // ABA 8: FOTOS DA CIDADE
+  // ═══════════════════════════════════════
+  const cityLabels = {
+    entrada:"Entrada da cidade", praca:"Praça principal", shopping_fachada:"Fachada Shopping",
+    estacionamento:"Estacionamento Shopping", ruas:"Ruas comerciais",
+    referencias:"Pontos de referência", paisagens:"Paisagens da região"
+  };
+  const cityRows = [["FOTOS DA CIDADE DE CARPINA"],[],["Item","Status"]];
+  const cityPhotos = loadedData.cityPhotos || {};
+  Object.keys(cityLabels).forEach(key => {
+    cityRows.push([cityLabels[key], cityPhotos[key] ? "✓ Feito" : "✗ Pendente"]);
+  });
+
+  const wsCity = XLSX.utils.aoa_to_sheet(cityRows);
+  wsCity["!cols"] = [{wch:28},{wch:14}];
+  wsCity["!merges"] = [{s:{r:0,c:0},e:{r:0,c:1}}];
+  XLSX.utils.book_append_sheet(wb, wsCity, "Fotos Cidade");
+
+  // ═══════════════════════════════════════
+  // DOWNLOAD
+  // ═══════════════════════════════════════
+  const today = new Date().toISOString().split("T")[0];
+  XLSX.writeFile(wb, `feirao-carpina-relatorio-${today}.xlsx`);
+  setStatus("✓ Planilha gerada com sucesso! Verifique sua pasta de downloads.", "ok");
+}
+</script>
+</body>
+</html>
