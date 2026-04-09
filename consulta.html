@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d1117">
+<title>Reservas — Treinamento Seminovos em Alta</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1117; --surface: #16213e; --surface2: #1a1a2e; --surface3: #2a2a3e;
+    --red: #e94560; --blue: #0f3460; --green: #10b981; --amber: #f59e0b;
+    --purple: #8b5cf6; --text: #e2e8f0; --muted: #64748b; --dim: #9ca3af;
+    --font: 'DM Sans', -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'Space Mono', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+  .topbar { background: linear-gradient(135deg, var(--surface2), var(--surface)); padding: 18px 16px;
+    position: sticky; top: 0; z-index: 50; border-bottom: 2px solid var(--green); }
+  .topbar-inner { max-width: 800px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .topbar-title { font-size: 16px; font-weight: 900; color: var(--green); letter-spacing: 1px; }
+  .topbar-sub { font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: 0.5px; margin-top: 2px; }
+  .live-indicator { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--green);
+    font-weight: 700; }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+    animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .main { max-width: 800px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 26px; }
+  .stat { background: var(--surface); border-radius: 14px; padding: 16px 12px; text-align: center;
+    border-top: 3px solid; }
+  .stat-val { font-size: 26px; font-weight: 900; font-family: var(--mono); }
+  .stat-lbl { font-size: 10px; color: var(--dim); font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; margin-top: 4px; }
+
+  .day-header { display: flex; align-items: center; gap: 10px; margin: 28px 0 14px; }
+  .day-bar { width: 4px; height: 28px; border-radius: 2px; background: var(--red); }
+  .day-title { font-size: 16px; font-weight: 900; }
+  .day-date { font-size: 12px; color: var(--dim); font-weight: 600; }
+
+  .slot { background: var(--surface); border-radius: 16px; padding: 18px; margin-bottom: 14px;
+    border: 2px solid var(--surface3); }
+  .slot.full { border-color: var(--green); background: linear-gradient(135deg, var(--surface), #0a2818); }
+  .slot.partial { border-color: var(--amber); }
+  .slot.empty { opacity: 0.6; }
+
+  .slot-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+    padding-bottom: 12px; border-bottom: 1px solid var(--surface2); }
+  .slot-time { background: var(--surface2); color: var(--red); font-family: var(--mono); font-weight: 700;
+    padding: 9px 14px; border-radius: 10px; font-size: 14px; }
+  .slot.full .slot-time { color: var(--green); background: #0a2818; }
+  .slot-info { flex: 1; }
+  .slot-count { font-size: 13px; color: var(--text); font-weight: 700; }
+  .slot-bar { display: flex; gap: 4px; margin-top: 6px; }
+  .slot-bar-item { flex: 1; height: 5px; border-radius: 3px; background: var(--surface3); }
+  .slot-bar-item.filled { background: var(--amber); }
+  .slot.full .slot-bar-item.filled { background: var(--green); }
+  .slot-status { font-size: 10px; font-weight: 800; padding: 5px 12px; border-radius: 20px;
+    text-transform: uppercase; letter-spacing: 0.5px; }
+  .status-full { background: #0a2818; color: var(--green); }
+  .status-partial { background: #2d1f00; color: var(--amber); }
+  .status-empty { background: var(--surface2); color: var(--muted); }
+
+  .loja-card { background: var(--surface2); border-radius: 12px; padding: 14px 16px; margin-bottom: 8px;
+    border-left: 4px solid var(--green); display: flex; align-items: flex-start; gap: 12px; }
+  .loja-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--green);
+    color: white; display: flex; align-items: center; justify-content: center; font-weight: 900;
+    font-size: 14px; flex-shrink: 0; }
+  .loja-content { flex: 1; min-width: 0; }
+  .loja-name { font-size: 14px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+  .loja-people { font-size: 12px; color: var(--dim); line-height: 1.5; margin-bottom: 4px; }
+  .loja-people strong { color: var(--text); }
+  .loja-meta { font-size: 10px; color: var(--muted); font-family: var(--mono); display: flex;
+    gap: 12px; flex-wrap: wrap; margin-top: 6px; }
+  .loja-meta span { display: flex; align-items: center; gap: 4px; }
+
+  .empty-msg { text-align: center; padding: 20px; color: var(--muted); font-size: 12px;
+    font-style: italic; }
+
+  .pending-section { background: var(--surface); border-radius: 16px; padding: 20px; margin-top: 30px;
+    border-left: 4px solid var(--red); }
+  .pending-section h3 { font-size: 14px; color: var(--red); font-weight: 800; margin-bottom: 6px; }
+  .pending-section p { font-size: 11px; color: var(--dim); margin-bottom: 14px; }
+  .pending-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pending-item { background: var(--surface2); color: var(--text); padding: 8px 14px; border-radius: 20px;
+    font-size: 12px; font-weight: 600; border: 1px solid var(--surface3); }
+
+  .loading { min-height: 80vh; display: flex; align-items: center; justify-content: center; }
+  .loading-text { font-size: 14px; color: var(--dim); }
+
+  .footer { text-align: center; margin-top: 40px; padding: 20px; }
+  .footer-text { font-size: 11px; color: var(--muted); }
+  .footer a { color: var(--red); text-decoration: none; font-weight: 700; }
+
+  @media (max-width: 480px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .topbar-title { font-size: 14px; }
+    .stat-val { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading" class="loading"><div class="loading-text">📊 Carregando reservas...</div></div>
+
+<div id="app" style="display:none">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div style="flex:1">
+        <div class="topbar-title">📊 PAINEL DE RESERVAS</div>
+        <div class="topbar-sub">TREINAMENTO • SEMINOVOS EM ALTA CARPINA</div>
+      </div>
+      <div class="live-indicator">
+        <div class="live-dot"></div>
+        AO VIVO
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="stats" id="stats"></div>
+    <div id="slots"></div>
+    <div id="pending-section"></div>
+
+    <div class="footer">
+      <div class="footer-text">
+        Atualização automática em tempo real<br>
+        Última atualização: <span id="last-update">--</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDgh6-6Ky_VKDzgasOlC5g43V454zzmtZM",
+  authDomain: "feirao-carpina.firebaseapp.com",
+  databaseURL: "https://feirao-carpina-default-rtdb.firebaseio.com",
+  projectId: "feirao-carpina",
+};
+
+const MAX_LOJAS_PER_SLOT = 3;
+
+const LOJAS = [
+  "JM Veículos", "Seminovos Vivant", "Guivel", "SD Multimarcas", "AD Veículos",
+  "GFC Veículos", "Pato Veículos", "RG Veículos", "JP Veículos", "Mais Veículos",
+  "SuperCarro Veículos", "Multivel", "JR Veículos", "Tião Veículos"
+];
+
+const SLOTS = [
+  { id: "s1", day: "Segunda-feira", date: "13/04/2026", time: "10:00 às 11:00" },
+  { id: "s2", day: "Segunda-feira", date: "13/04/2026", time: "14:00 às 15:00" },
+  { id: "s3", day: "Segunda-feira", date: "13/04/2026", time: "15:30 às 16:30" },
+  { id: "s4", day: "Terça-feira", date: "14/04/2026", time: "10:00 às 11:00" },
+  { id: "s5", day: "Terça-feira", date: "14/04/2026", time: "13:00 às 14:00" },
+];
+
+let bookings = {};
+
+function init() {
+  if (typeof firebase === "undefined") {
+    document.getElementById("loading").innerHTML = `
+      <div style="text-align:center;padding:30px;max-width:400px">
+        <div style="font-size:36px;margin-bottom:12px">⚠️</div>
+        <div style="color:#ef4444;font-size:15px;font-weight:700;margin-bottom:8px">Firebase não carregou</div>
+        <div style="color:#9ca3af;font-size:12px">Recarregue a página (F5) ou desative bloqueadores</div>
+        <button onclick="location.reload()" style="margin-top:16px;padding:10px 20px;background:#e94560;
+          color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer">🔄 Recarregar</button>
+      </div>`;
+    return;
+  }
+
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    const db = firebase.database();
+    db.ref("treinamento-bookings").on("value", snap => {
+      bookings = snap.val() || {};
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("app").style.display = "block";
+      render();
+    });
+  } catch (e) {
+    document.getElementById("loading").innerHTML = '<div class="loading-text" style="color:#ef4444">Erro: ' + e.message + '</div>';
+  }
+}
+
+function render() {
+  renderStats();
+  renderSlots();
+  renderPending();
+  document.getElementById("last-update").textContent =
+    new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function renderStats() {
+  let totalBooked = 0;
+  let slotsFull = 0;
+  SLOTS.forEach(slot => {
+    const count = (bookings[slot.id] || []).length;
+    totalBooked += count;
+    if (count >= MAX_LOJAS_PER_SLOT) slotsFull++;
+  });
+  const remaining = LOJAS.length - totalBooked;
+  const pct = Math.round((totalBooked / LOJAS.length) * 100);
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat" style="border-color:var(--green)">
+      <div class="stat-val" style="color:var(--green)">${totalBooked}</div>
+      <div class="stat-lbl">Reservadas</div>
+    </div>
+    <div class="stat" style="border-color:var(--amber)">
+      <div class="stat-val" style="color:var(--amber)">${remaining}</div>
+      <div class="stat-lbl">Pendentes</div>
+    </div>
+    <div class="stat" style="border-color:var(--red)">
+      <div class="stat-val" style="color:var(--red)">${pct}%</div>
+      <div class="stat-lbl">Progresso</div>
+    </div>
+    <div class="stat" style="border-color:var(--purple)">
+      <div class="stat-val" style="color:var(--purple)">${slotsFull}/${SLOTS.length}</div>
+      <div class="stat-lbl">Slots Cheios</div>
+    </div>
+  `;
+}
+
+function renderSlots() {
+  const container = document.getElementById("slots");
+  let html = "";
+  let currentDay = "";
+
+  SLOTS.forEach(slot => {
+    if (slot.day !== currentDay) {
+      currentDay = slot.day;
+      html += `
+        <div class="day-header">
+          <div class="day-bar"></div>
+          <div>
+            <div class="day-title">${slot.day}</div>
+            <div class="day-date">${slot.date}</div>
+          </div>
+        </div>`;
+    }
+
+    const entries = bookings[slot.id] || [];
+    const count = entries.length;
+    const isFull = count >= MAX_LOJAS_PER_SLOT;
+    const isEmpty = count === 0;
+    const slotClass = isFull ? "full" : (isEmpty ? "empty" : "partial");
+    const statusClass = isFull ? "status-full" : (isEmpty ? "status-empty" : "status-partial");
+    const statusText = isFull ? "✓ Completo" : (isEmpty ? "Aguardando" : `${count}/3 lojas`);
+
+    let bar = "";
+    for (let i = 0; i < MAX_LOJAS_PER_SLOT; i++) {
+      bar += `<div class="slot-bar-item ${i < count ? 'filled' : ''}"></div>`;
+    }
+
+    let entriesHtml = "";
+    if (entries.length === 0) {
+      entriesHtml = '<div class="empty-msg">— Nenhuma loja reservada ainda —</div>';
+    } else {
+      entries.forEach((e, i) => {
+        const time = e.timestamp ? new Date(e.timestamp).toLocaleString("pt-BR",
+          { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+        entriesHtml += `
+          <div class="loja-card">
+            <div class="loja-icon">${i + 1}</div>
+            <div class="loja-content">
+              <div class="loja-name">${escapeHtml(e.loja)}</div>
+              <div class="loja-people"><strong>👥 Participantes:</strong> ${escapeHtml(e.pessoas)}</div>
+              <div class="loja-meta">
+                ${e.tel ? `<span>📞 ${escapeHtml(e.tel)}</span>` : ''}
+                <span>🕐 ${time}</span>
+              </div>
+            </div>
+          </div>`;
+      });
+    }
+
+    html += `
+      <div class="slot ${slotClass}">
+        <div class="slot-head">
+          <div class="slot-time">${slot.time}</div>
+          <div class="slot-info">
+            <div class="slot-count">${count}/${MAX_LOJAS_PER_SLOT} lojas</div>
+            <div class="slot-bar">${bar}</div>
+          </div>
+          <span class="slot-status ${statusClass}">${statusText}</span>
+        </div>
+        ${entriesHtml}
+      </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function renderPending() {
+  const bookedLojas = new Set();
+  Object.values(bookings).forEach(arr => {
+    (arr || []).forEach(b => bookedLojas.add(b.loja));
+  });
+  const pending = LOJAS.filter(l => !bookedLojas.has(l));
+
+  if (pending.length === 0) {
+    document.getElementById("pending-section").innerHTML = `
+      <div class="pending-section" style="border-color:var(--green)">
+        <h3 style="color:var(--green)">✅ Todas as lojas reservaram!</h3>
+        <p>Todas as 14 lojas confirmaram presença no treinamento.</p>
+      </div>`;
+    return;
+  }
+
+  let html = `
+    <div class="pending-section">
+      <h3>⚠️ Lojas que ainda não reservaram (${pending.length})</h3>
+      <p>Essas lojas precisam acessar o link de reserva e escolher um horário.</p>
+      <div class="pending-list">`;
+  pending.forEach(l => {
+    html += `<div class="pending-item">${l}</div>`;
+  });
+  html += `</div></div>`;
+  document.getElementById("pending-section").innerHTML = html;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str || "";
+  return div.innerHTML;
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => setTimeout(init, 300));
+} else {
+  setTimeout(init, 300);
+}
+</script>
+</body>
+</html>
