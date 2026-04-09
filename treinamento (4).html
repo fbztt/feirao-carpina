@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d1117">
+<title>Treinamento Online — Seminovos em Alta Carpina</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1117; --surface: #16213e; --surface2: #1a1a2e; --surface3: #2a2a3e;
+    --red: #e94560; --blue: #0f3460; --green: #10b981; --amber: #f59e0b;
+    --purple: #8b5cf6; --text: #e2e8f0; --muted: #64748b; --dim: #9ca3af;
+    --font: 'DM Sans', -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'Space Mono', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; overflow-x: hidden; }
+
+  .topbar { background: linear-gradient(135deg, var(--surface2), var(--surface)); padding: 18px 16px;
+    position: sticky; top: 0; z-index: 50; border-bottom: 2px solid var(--red); }
+  .topbar-inner { max-width: 700px; margin: 0 auto; text-align: center; }
+  .topbar-title { font-size: 17px; font-weight: 900; color: var(--red); letter-spacing: 1px; }
+  .topbar-sub { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 0.5px; margin-top: 2px; }
+
+  .main { max-width: 700px; margin: 0 auto; padding: 20px 16px 40px; }
+
+  .intro { background: var(--surface); border-radius: 16px; padding: 20px; margin-bottom: 20px;
+    border-left: 4px solid var(--amber); }
+  .intro h2 { font-size: 15px; color: var(--amber); margin-bottom: 8px; font-weight: 800; }
+  .intro p { font-size: 13px; color: var(--dim); line-height: 1.55; }
+  .intro strong { color: var(--text); }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px; }
+  .stat { background: var(--surface2); border-radius: 12px; padding: 14px 10px; text-align: center; border-top: 3px solid; }
+  .stat-val { font-size: 22px; font-weight: 900; font-family: var(--mono); }
+  .stat-lbl { font-size: 10px; color: var(--dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+  .day-header { display: flex; align-items: center; gap: 10px; margin: 24px 0 12px; }
+  .day-bar { width: 4px; height: 26px; border-radius: 2px; background: var(--red); }
+  .day-title { font-size: 15px; font-weight: 800; letter-spacing: 0.5px; }
+  .day-date { font-size: 11px; color: var(--dim); font-weight: 600; }
+
+  .slot { background: var(--surface); border-radius: 16px; padding: 18px; margin-bottom: 12px;
+    border: 2px solid var(--surface3); transition: all 0.2s; }
+  .slot.full { border-color: var(--muted); opacity: 0.65; }
+  .slot.has-lojas { border-color: var(--amber); }
+  .slot.ready { border-color: var(--green); }
+
+  .slot-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .slot-time { background: var(--surface2); color: var(--red); font-family: var(--mono); font-weight: 700;
+    padding: 8px 12px; border-radius: 10px; font-size: 14px; }
+  .slot.full .slot-time { color: var(--muted); background: var(--surface3); }
+  .slot.ready .slot-time { color: var(--green); }
+  .slot-info { flex: 1; }
+  .slot-count { font-size: 12px; color: var(--dim); font-weight: 600; }
+  .slot-bar { display: flex; gap: 4px; margin-top: 6px; }
+  .slot-bar-item { flex: 1; height: 5px; border-radius: 3px; background: var(--surface3); }
+  .slot-bar-item.filled { background: var(--amber); }
+  .slot.full .slot-bar-item.filled { background: var(--muted); }
+  .slot.ready .slot-bar-item.filled { background: var(--green); }
+
+  .loja-entry { background: var(--surface2); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px;
+    border-left: 3px solid var(--amber); position: relative; }
+  .loja-entry-name { font-size: 13px; font-weight: 800; color: var(--text); }
+  .loja-entry-people { font-size: 11px; color: var(--dim); margin-top: 3px; line-height: 1.4; }
+  .loja-entry-meta { font-size: 9px; color: var(--muted); margin-top: 4px; font-family: var(--mono); }
+  .loja-entry-del { position: absolute; top: 8px; right: 8px; background: transparent; border: none;
+    color: var(--muted); cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 6px; }
+  .loja-entry-del:hover { color: var(--red); background: var(--surface3); }
+
+  .btn-book { width: 100%; padding: 12px; background: var(--red); border: none; border-radius: 10px;
+    color: white; font-weight: 800; font-size: 13px; cursor: pointer; font-family: var(--font);
+    margin-top: 8px; transition: all 0.15s; }
+  .btn-book:active { transform: scale(0.97); }
+  .btn-book:disabled { background: var(--surface3); color: var(--muted); cursor: not-allowed; }
+
+  .full-badge { background: var(--muted); color: var(--bg); font-size: 10px; font-weight: 800;
+    padding: 4px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none;
+    align-items: center; justify-content: center; z-index: 100; padding: 20px; backdrop-filter: blur(4px); }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--surface); border-radius: 18px; padding: 24px; max-width: 440px; width: 100%;
+    border: 1px solid var(--surface3); max-height: 90vh; overflow-y: auto; }
+  .modal h3 { font-size: 17px; font-weight: 900; color: var(--red); margin-bottom: 4px; }
+  .modal p { font-size: 12px; color: var(--dim); margin-bottom: 18px; }
+
+  .modal label { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.8px;
+    text-transform: uppercase; display: block; margin-bottom: 6px; margin-top: 14px; }
+  .modal input, .modal select, .modal textarea { width: 100%; padding: 11px 14px; background: var(--surface2);
+    border: 1px solid var(--surface3); border-radius: 10px; color: var(--text); font-size: 13px;
+    font-family: var(--font); outline: none; }
+  .modal input:focus, .modal select:focus, .modal textarea:focus { border-color: var(--red); }
+  .modal textarea { min-height: 80px; resize: vertical; }
+
+  .modal-btns { display: flex; gap: 8px; margin-top: 22px; }
+  .modal-btns button { flex: 1; padding: 13px; border: none; border-radius: 10px; font-weight: 800;
+    font-size: 13px; cursor: pointer; font-family: var(--font); }
+  .btn-confirm { background: var(--green); color: white; }
+  .btn-cancel { background: var(--surface2); color: var(--dim); border: 1px solid var(--surface3); }
+
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--surface); border: 1px solid var(--surface3); border-radius: 12px;
+    padding: 10px 18px; font-size: 12px; color: var(--dim); z-index: 200;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .toast.success { color: var(--green); border-color: var(--green); }
+  .toast.error { color: var(--red); border-color: var(--red); }
+
+  .loading { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .loading-text { font-size: 14px; color: var(--dim); }
+
+  @media (max-width: 420px) {
+    .stats { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .stat { padding: 10px 6px; }
+    .stat-val { font-size: 18px; }
+    .slot-head { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading" class="loading"><div class="loading-text">🚗 Carregando agenda...</div></div>
+
+<div id="app" style="display:none">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-title">🎓 TREINAMENTO ONLINE</div>
+      <div class="topbar-sub">SEMINOVOS EM ALTA • CARPINA-PE</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="intro">
+      <h2>📢 Como funciona</h2>
+      <p>Escolha o <strong>horário</strong> que sua loja pode participar e faça a reserva. Cada horário comporta <strong>3 lojas</strong>. Quando atingir 3, o horário <strong>fecha automaticamente</strong>. Traga <strong>quem for participar</strong> (vendedores, responsável comunicação, leads). Prazo: <strong>até amanhã cedo</strong>.</p>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div id="slots"></div>
+  </div>
+</div>
+
+<!-- MODAL DE RESERVA -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3>📝 Reservar Horário</h3>
+    <p id="modal-subtitle">Preencha os dados da sua loja</p>
+
+    <label>Selecione sua loja *</label>
+    <select id="inp-loja">
+      <option value="">— Escolha a loja —</option>
+    </select>
+
+    <label>Participantes *</label>
+    <textarea id="inp-pessoas" placeholder="Ex: João Silva (gerente), Maria Santos (vendedora), Pedro Costa (comunicação)"></textarea>
+
+    <label>Telefone de contato</label>
+    <input type="tel" id="inp-tel" placeholder="(81) 99999-9999">
+
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-confirm" onclick="confirmBooking()">✓ Confirmar Reserva</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════════════
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDgh6-6Ky_VKDzgasOlC5g43V454zzmtZM",
+  authDomain: "feirao-carpina.firebaseapp.com",
+  databaseURL: "https://feirao-carpina-default-rtdb.firebaseio.com",
+  projectId: "feirao-carpina",
+};
+
+const MAX_LOJAS_PER_SLOT = 3;
+
+const LOJAS = [
+  "JM Veículos", "Seminovos Vivant", "Guivel", "SD Multimarcas", "AD Veículos",
+  "GFC Veículos", "Pato Veículos", "RG Veículos", "JP Veículos", "Mais Veículos",
+  "SuperCarro Veículos", "Multivel", "JR Veículos", "Tião Veículos"
+];
+
+const SLOTS = [
+  { id: "s1", day: "Segunda-feira", date: "13/04/2026", time: "10:00 às 11:00", order: 1 },
+  { id: "s2", day: "Segunda-feira", date: "13/04/2026", time: "14:00 às 15:00", order: 2 },
+  { id: "s3", day: "Segunda-feira", date: "13/04/2026", time: "15:30 às 16:30", order: 3 },
+  { id: "s4", day: "Terça-feira", date: "14/04/2026", time: "10:00 às 11:00", order: 4 },
+  { id: "s5", day: "Terça-feira", date: "14/04/2026", time: "13:00 às 14:00", order: 5 },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+
+let bookings = {}; // { slotId: [ {loja, pessoas, tel, timestamp}, ... ] }
+let db = null;
+let dbRef = null;
+let selectedSlotId = null;
+
+// ═══════════════════════════════════════════════════════════════
+// FIREBASE
+// ═══════════════════════════════════════════════════════════════
+
+function init() {
+  // Check if firebase loaded
+  if (typeof firebase === "undefined") {
+    document.getElementById("loading").innerHTML = `
+      <div style="text-align:center;padding:30px;max-width:400px">
+        <div style="font-size:36px;margin-bottom:12px">⚠️</div>
+        <div style="color:#ef4444;font-size:15px;font-weight:700;margin-bottom:8px">Firebase não carregou</div>
+        <div style="color:#9ca3af;font-size:12px;line-height:1.5">
+          Pode ser bloqueador de anúncios, antivírus ou problema de conexão.<br><br>
+          <strong>Soluções:</strong><br>
+          1. Desative AdBlock/uBlock para este site<br>
+          2. Tente em outro navegador (Chrome/Edge)<br>
+          3. Tente conectado em outra rede<br>
+          4. Recarregue a página (F5)
+        </div>
+        <button onclick="location.reload()" style="margin-top:16px;padding:10px 20px;background:#e94560;
+          color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer">🔄 Recarregar</button>
+      </div>`;
+    return;
+  }
+
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.database();
+    dbRef = db.ref("treinamento-bookings");
+
+    dbRef.on("value", snap => {
+      bookings = snap.val() || {};
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("app").style.display = "block";
+      render();
+    }, err => {
+      console.error(err);
+      document.getElementById("loading").innerHTML = '<div class="loading-text" style="color:#ef4444">Erro ao conectar. Verifique sua internet.</div>';
+    });
+  } catch (e) {
+    console.error(e);
+    document.getElementById("loading").innerHTML = '<div class="loading-text" style="color:#ef4444">Erro: ' + e.message + '</div>';
+  }
+}
+
+function saveBooking(slotId, entry) {
+  const current = bookings[slotId] || [];
+  if (current.length >= MAX_LOJAS_PER_SLOT) {
+    showToast("Horário cheio! Escolha outro.", "error");
+    return false;
+  }
+  // Check if loja already booked in any slot
+  for (const sid in bookings) {
+    const arr = bookings[sid] || [];
+    if (arr.some(b => b.loja === entry.loja)) {
+      showToast(`${entry.loja} já está reservada em outro horário.`, "error");
+      return false;
+    }
+  }
+  current.push(entry);
+  dbRef.child(slotId).set(current)
+    .then(() => showToast("✓ Reserva confirmada!", "success"))
+    .catch(e => showToast("Erro ao salvar", "error"));
+  return true;
+}
+
+function removeBooking(slotId, index) {
+  if (!confirm("Cancelar essa reserva?")) return;
+  const current = bookings[slotId] || [];
+  current.splice(index, 1);
+  dbRef.child(slotId).set(current)
+    .then(() => showToast("Reserva removida", "success"))
+    .catch(() => showToast("Erro ao remover", "error"));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════
+
+function render() {
+  renderStats();
+  renderSlots();
+  updateLojaSelect();
+}
+
+function renderStats() {
+  let totalBooked = 0;
+  let slotsFull = 0;
+  let slotsOpen = 0;
+
+  SLOTS.forEach(slot => {
+    const count = (bookings[slot.id] || []).length;
+    totalBooked += count;
+    if (count >= MAX_LOJAS_PER_SLOT) slotsFull++;
+    else slotsOpen++;
+  });
+
+  const remaining = LOJAS.length - totalBooked;
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat" style="border-color:var(--green)">
+      <div class="stat-val" style="color:var(--green)">${totalBooked}/${LOJAS.length}</div>
+      <div class="stat-lbl">Reservadas</div>
+    </div>
+    <div class="stat" style="border-color:var(--amber)">
+      <div class="stat-val" style="color:var(--amber)">${remaining}</div>
+      <div class="stat-lbl">Faltam</div>
+    </div>
+    <div class="stat" style="border-color:var(--red)">
+      <div class="stat-val" style="color:var(--red)">${slotsOpen}</div>
+      <div class="stat-lbl">Slots Abertos</div>
+    </div>
+  `;
+}
+
+function renderSlots() {
+  const container = document.getElementById("slots");
+  let html = "";
+  let currentDay = "";
+
+  SLOTS.forEach(slot => {
+    if (slot.day !== currentDay) {
+      currentDay = slot.day;
+      html += `
+        <div class="day-header">
+          <div class="day-bar"></div>
+          <div>
+            <div class="day-title">${slot.day}</div>
+            <div class="day-date">${slot.date}</div>
+          </div>
+        </div>`;
+    }
+
+    const entries = bookings[slot.id] || [];
+    const count = entries.length;
+    const isFull = count >= MAX_LOJAS_PER_SLOT;
+    const hasLojas = count > 0 && !isFull;
+    const slotClass = isFull ? "full" : (hasLojas ? "has-lojas" : "");
+
+    let bar = "";
+    for (let i = 0; i < MAX_LOJAS_PER_SLOT; i++) {
+      bar += `<div class="slot-bar-item ${i < count ? 'filled' : ''}"></div>`;
+    }
+
+    let entriesHtml = "";
+    entries.forEach((e, i) => {
+      const time = e.timestamp ? new Date(e.timestamp).toLocaleString("pt-BR", {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "";
+      entriesHtml += `
+        <div class="loja-entry">
+          <div class="loja-entry-name">${escapeHtml(e.loja)}</div>
+          <div class="loja-entry-people">👥 ${escapeHtml(e.pessoas)}</div>
+          ${e.tel ? `<div class="loja-entry-meta">📞 ${escapeHtml(e.tel)} • reservado ${time}</div>` : `<div class="loja-entry-meta">reservado ${time}</div>`}
+          <button class="loja-entry-del" onclick="removeBooking('${slot.id}',${i})" title="Cancelar reserva">✕</button>
+        </div>`;
+    });
+
+    html += `
+      <div class="slot ${slotClass}">
+        <div class="slot-head">
+          <div class="slot-time">${slot.time}</div>
+          <div class="slot-info">
+            <div class="slot-count">${count}/${MAX_LOJAS_PER_SLOT} lojas</div>
+            <div class="slot-bar">${bar}</div>
+          </div>
+          ${isFull ? '<span class="full-badge">Cheio</span>' : ''}
+        </div>
+        ${entriesHtml}
+        <button class="btn-book" onclick="openModal('${slot.id}')" ${isFull ? 'disabled' : ''}>
+          ${isFull ? '🔒 Horário encerrado' : '+ Reservar este horário'}
+        </button>
+      </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function updateLojaSelect() {
+  const select = document.getElementById("inp-loja");
+  const bookedLojas = new Set();
+  Object.values(bookings).forEach(arr => {
+    (arr || []).forEach(b => bookedLojas.add(b.loja));
+  });
+
+  let options = '<option value="">— Escolha a loja —</option>';
+  LOJAS.forEach(loja => {
+    const isBooked = bookedLojas.has(loja);
+    options += `<option value="${loja}" ${isBooked ? 'disabled' : ''}>${loja}${isBooked ? ' (já reservada)' : ''}</option>`;
+  });
+  select.innerHTML = options;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════════════════════
+
+function openModal(slotId) {
+  selectedSlotId = slotId;
+  const slot = SLOTS.find(s => s.id === slotId);
+  document.getElementById("modal-subtitle").textContent = `${slot.day}, ${slot.date} — ${slot.time}`;
+  document.getElementById("inp-loja").value = "";
+  document.getElementById("inp-pessoas").value = "";
+  document.getElementById("inp-tel").value = "";
+  updateLojaSelect();
+  document.getElementById("modal").classList.add("show");
+}
+
+function closeModal() {
+  document.getElementById("modal").classList.remove("show");
+  selectedSlotId = null;
+}
+
+function confirmBooking() {
+  const loja = document.getElementById("inp-loja").value;
+  const pessoas = document.getElementById("inp-pessoas").value.trim();
+  const tel = document.getElementById("inp-tel").value.trim();
+
+  if (!loja) { showToast("Selecione sua loja", "error"); return; }
+  if (!pessoas) { showToast("Informe os participantes", "error"); return; }
+
+  const entry = { loja, pessoas, tel, timestamp: new Date().toISOString() };
+  if (saveBooking(selectedSlotId, entry)) {
+    closeModal();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+function showToast(msg, type) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className = "toast show " + (type || "");
+  setTimeout(() => el.classList.remove("show"), 2500);
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// Close modal on overlay click
+document.getElementById("modal").addEventListener("click", e => {
+  if (e.target.id === "modal") closeModal();
+});
+
+// Wait for page + scripts to load
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => setTimeout(init, 300));
+} else {
+  setTimeout(init, 300);
+}
+</script>
+</body>
+</html>
